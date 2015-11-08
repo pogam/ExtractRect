@@ -71,15 +71,18 @@ def get_rectangle_coord(angle,data):
 
 
 ########################################################################
-def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10):
+def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,flag_out=None,fag_enlarge_img=True):
     
     nx_in,ny_in = data_in.shape
     rotation_angle = np.linspace(0,360,nbre_angle+1)[:-1]
 
-    data = np.zeros([2*data_in.shape[0]+1,2*data_in.shape[1]+1]) + 1
-    nx,ny = data.shape
-    data[nx/2-nx_in/2:nx/2+nx_in/2,ny/2-ny_in/2:ny/2+ny_in/2] = data_in
-
+    if fag_enlarge_img:
+        data = np.zeros([2*data_in.shape[0]+1,2*data_in.shape[1]+1]) + 1
+        nx,ny = data.shape
+        data[nx/2-nx_in/2:nx/2+nx_in/2,ny/2-ny_in/2:ny/2+ny_in/2] = data_in
+    else:
+        data = np.copy(data_in)
+        nx,ny = data.shape
     
     if flag_opt:
         myranges_brute = ([(0.,360.),])
@@ -130,10 +133,19 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10):
     #transform to numpy coord of input image
     coord_out = []
     for coord in rect_coord_ori:
-        coord_out.append([round(coord[0],0)-(nx/2-nx_in/2),round((ny-1)-coord[1],0)-(ny/2-ny_in/2)])
+        coord_out.append(    [round(coord[0],0)-(nx/2-nx_in/2),round((ny-1)-coord[1],0)-(ny/2-ny_in/2)])
+    
+    coord_out_rot = []
+    for coord in rect_coord:
+        coord_out_rot.append( [ round(coord[0],0), round(coord[1],0)] )
 
-    return coord_out
-
+    if flag_out is None:
+        return coord_out
+    elif flag_out == 'rotation':
+        return coord_out, angle_selected,coord_out_rot
+    else:
+        print 'bad def in findRotMaxRect input. stop'
+        pdb.set_trace()
 
 #######################################
 if __name__ == '__main__':
@@ -152,13 +164,27 @@ if __name__ == '__main__':
 
     #get coordinate of biggest rectangle
     time_start = datetime.datetime.now()
-    rect_coord_ori = findRotMaxRect(bb, flag_opt=True, flag_parallel =False,  nbre_angle=30)
-    
-    print 'time elapsed =', (datetime.datetime.now()-time_start).total_seconds()
-    
+    rect_coord_ori, angle, coord_out_rot = findRotMaxRect(bb, flag_opt=True, flag_parallel =False,  nbre_angle=4, flag_out='rotation',fag_enlarge_img=False)
     coord_aa = []
     for coord in rect_coord_ori:
         coord_aa.append([scale_factor*coord[0],scale_factor*coord[1]])
+    
+    '''
+    M = cv2.getRotationMatrix2D(((aa.shape[0]-1)/2,(aa.shape[1]-1)/2),angle,1)
+    RotData = cv2.warpAffine(aa,M,aa.shape,flags=cv2.INTER_NEAREST,borderValue=1)
+    bb = cv2.resize(RotData,(RotData.shape[0]/scale_factor,RotData.shape[1]/scale_factor),interpolation=0)
+    rect_coord_ori_rot = findRotMaxRect(bb, flag_opt=True, flag_parallel =False,  nbre_angle=1)
+    coord_aa_rot = []
+    for coord in rect_coord_ori_rot:
+        coord_aa_rot.append([scale_factor*coord[0],scale_factor*coord[1]])
+    '''
+
+    M = cv2.getRotationMatrix2D(((bb.shape[0]-1)/2,(bb.shape[1]-1)/2),angle,1)
+    RotData = cv2.warpAffine(bb,M,bb.shape,flags=cv2.INTER_NEAREST,borderValue=1)
+    
+
+    print 'time elapsed =', (datetime.datetime.now()-time_start).total_seconds()
+    
 
     #plot
     fig = plt.figure()
@@ -168,6 +194,11 @@ if __name__ == '__main__':
     ax.add_patch(patch)
     plt.show()
     
+    ax = plt.subplot(111)
+    ax.imshow(RotData.T,origin='lower',interpolation='nearest')
+    patch = patches.Polygon(coord_out_rot, edgecolor='green', facecolor='None', linewidth=2)
+    ax.add_patch(patch)
+    plt.show()
 
 
 
