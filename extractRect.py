@@ -61,13 +61,16 @@ def residual_star(args):
     
 
 ########################################################################
-def get_rectangle_coord(angle,data):
+def get_rectangle_coord(angle,data,flag_out=None):
     nx,ny = data.shape
     M = cv2.getRotationMatrix2D(((nx-1)/2,(ny-1)/2),angle,1)
     RotData = cv2.warpAffine(data,M,(nx,ny),flags=cv2.INTER_NEAREST,borderValue=1)
     rectangle = findMaxRect(RotData)
     
-    return rectangle[1][0], M
+    if flag_out:
+        return rectangle[1][0], M, RotData
+    else:
+        return rectangle[1][0], M
 
 
 ########################################################################
@@ -118,14 +121,20 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,fl
                 
         argmin = np.array(results).argmin()
         angle_selected = args_here[argmin][0]
-    
+    #rectangle, M_rect_max, RotData  = get_rectangle_coord(angle_selected,data,flag_out=True)
     rectangle, M_rect_max  = get_rectangle_coord(angle_selected,data)
 
     #invert rectangle 
     M_invert = cv2.invertAffineTransform(M_rect_max)
     rect_coord = [rectangle[:2], [rectangle[0],rectangle[3]] , 
                   rectangle[2:], [rectangle[2],rectangle[1]] ]
-    
+   
+    #ax = plt.subplot(111)
+    #ax.imshow(RotData.T,origin='lower',interpolation='nearest')
+    #patch = patches.Polygon(rect_coord, edgecolor='k', facecolor='None', linewidth=2)
+    #ax.add_patch(patch)
+    #plt.show()
+
     rect_coord_ori = []
     for coord in rect_coord:
         rect_coord_ori.append(np.dot(M_invert,[coord[0],(ny-1)-coord[1],1]))
@@ -137,7 +146,7 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,fl
     
     coord_out_rot = []
     for coord in rect_coord:
-        coord_out_rot.append( [ round(coord[0],0), round(coord[1],0)] )
+        coord_out_rot.append( [ (round(coord[0],0))-(nx/2-nx_in/2), round(coord[1],0)-(ny/2-ny_in/2)] )
 
     if flag_out is None:
         return coord_out
@@ -159,12 +168,26 @@ if __name__ == '__main__':
     idx_out = np.where(a==0) 
     aa = np.ones([300,300])
     aa[idx_in]  = 0
-   
+  
+    #apply scale factor
     bb = cv2.resize(aa,(aa.shape[0]/scale_factor,aa.shape[1]/scale_factor),interpolation=0)
+     
+    # set the input data with an odd number of point in each dimension to make rotation easier
+    nx,ny = bb.shape
+    nx_extra = 0; ny_extra = 0   
+    if nx%2==0:
+        nx+=1
+        nx_extra = 1
+    if ny%2==0:
+        ny+=1
+        ny_extra = 1
+    bb2 = np.ones([bb.shape[0]+nx_extra,bb.shape[1]+ny_extra])
+    bb2[:-nx_extra,:-ny_extra] = bb
+    nx,ny = bb2.shape
 
     #get coordinate of biggest rectangle
     time_start = datetime.datetime.now()
-    rect_coord_ori, angle, coord_out_rot = findRotMaxRect(bb, flag_opt=True, flag_parallel =False,  nbre_angle=4, flag_out='rotation',fag_enlarge_img=False)
+    rect_coord_ori, angle, coord_out_rot= findRotMaxRect(bb2, flag_opt=True, flag_parallel =False,  nbre_angle=4, flag_out='rotation',fag_enlarge_img=False)
     coord_aa = []
     for coord in rect_coord_ori:
         coord_aa.append([scale_factor*coord[0],scale_factor*coord[1]])
@@ -179,12 +202,11 @@ if __name__ == '__main__':
         coord_aa_rot.append([scale_factor*coord[0],scale_factor*coord[1]])
     '''
 
-    M = cv2.getRotationMatrix2D(((bb.shape[0]-1)/2,(bb.shape[1]-1)/2),angle,1)
-    RotData = cv2.warpAffine(bb,M,bb.shape,flags=cv2.INTER_NEAREST,borderValue=1)
+    M = cv2.getRotationMatrix2D(((bb2.shape[0]-1)/2,(bb2.shape[1]-1)/2),angle,1)
+    RotData = cv2.warpAffine(bb2,M,bb2.shape,flags=cv2.INTER_NEAREST,borderValue=1)
     
 
     print 'time elapsed =', (datetime.datetime.now()-time_start).total_seconds()
-    
 
     #plot
     fig = plt.figure()
