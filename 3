@@ -75,57 +75,16 @@ def get_rectangle_coord(angle,data,flag_out=None):
 
 ########################################################################
 def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,flag_out=None,fag_enlarge_img=True):
-   
-
-    #make the image square
-    #----------------
-    nx_in, ny_in = data_in.shape
-    if nx_in != ny_in:
-        n = max([nx_in,ny_in])
-        data_square = np.ones([n,n])
-        xshift = (n-nx_in)/2
-        yshift = (n-ny_in)/2 
-        if yshift == 0:
-            data_square[xshift:(xshift+nx_in),:                 ] = data_in[:,:]
-        else: 
-            data_square[:                 ,yshift:(yshift+ny_in)] = data_in[:,:]
-    else:
-        data_square = data_in
-
-    #apply scale factor if image bigger than 300x300 pixels
-    #----------------
-    if data_square.shape[0] > 100:
-        data_small = cv2.resize(data_square,(100,100),interpolation=0)
-        scale_factor = 1.*data_square.shape[0]/data_small.shape[0]
-    else:
-        data_small = data_square
-        scale_factor = 1
-
-
-    # set the input data with an odd number of point in each dimension to make rotation easier
-    #----------------
-    nx,ny = data_small.shape
-    nx_extra = -nx; ny_extra = -ny   
-    if nx%2==0:
-        nx+=1
-        nx_extra = 1
-    if ny%2==0:
-        ny+=1
-        ny_extra = 1
-    data_odd = np.ones([data_small.shape[0]+max([0,nx_extra]),data_small.shape[1]+max([0,ny_extra])])
-    data_odd[:-nx_extra, :-ny_extra] = data_small
-    nx,ny = data_odd.shape
-
-
-    nx_odd,ny_odd = data_odd.shape
+    
+    nx_in,ny_in = data_in.shape
     rotation_angle = np.linspace(0,360,nbre_angle+1)[:-1]
 
     if fag_enlarge_img:
-        data = np.zeros([2*data_odd.shape[0]+1,2*data_odd.shape[1]+1]) + 1
+        data = np.zeros([2*data_in.shape[0]+1,2*data_in.shape[1]+1]) + 1
         nx,ny = data.shape
-        data[nx/2-nx_odd/2:nx/2+nx_odd/2,ny/2-ny_odd/2:ny/2+ny_odd/2] = data_odd
+        data[nx/2-nx_in/2:nx/2+nx_in/2,ny/2-ny_in/2:ny/2+ny_in/2] = data_in
     else:
-        data = np.copy(data_odd)
+        data = np.copy(data_in)
         nx,ny = data.shape
     
     if flag_opt:
@@ -162,8 +121,8 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,fl
                 
         argmin = np.array(results).argmin()
         angle_selected = args_here[argmin][0]
-    rectangle, M_rect_max, RotData  = get_rectangle_coord(angle_selected,data,flag_out=True)
-    #rectangle, M_rect_max  = get_rectangle_coord(angle_selected,data)
+    #rectangle, M_rect_max, RotData  = get_rectangle_coord(angle_selected,data,flag_out=True)
+    rectangle, M_rect_max  = get_rectangle_coord(angle_selected,data)
 
     #invert rectangle 
     M_invert = cv2.invertAffineTransform(M_rect_max)
@@ -183,32 +142,16 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,fl
     #transform to numpy coord of input image
     coord_out = []
     for coord in rect_coord_ori:
-        coord_out.append(    [ scale_factor*round(       coord[0]-(nx/2-nx_odd/2),0)-xshift,\
-                               scale_factor*round((ny-1)-coord[1]-(ny/2-ny_odd/2),0)-yshift])
+        coord_out.append(    [round(coord[0],0)-(nx/2-nx_in/2),round((ny-1)-coord[1],0)-(ny/2-ny_in/2)])
     
     coord_out_rot = []
     for coord in rect_coord:
-        coord_out_rot.append( [ scale_factor*round(       coord[0]-(nx/2-nx_odd/2),0)-xshift, \
-                                scale_factor*round((ny-1)-coord[1]-(ny/2-ny_odd/2),0)-yshift ])
-
-        print                   scale_factor*round(       coord[1]-(ny/2-ny_odd/2),0)-yshift, \
-                                scale_factor*round((ny-1)-coord[1]-(ny/2-ny_odd/2),0)-yshift
-    
-        
-    center_rot = [xshift,yshift]
-
-    #coord for data_in
-    #----------------
-    #print scale_factor, xshift, yshift
-    #coord_out2 = []
-    #for coord in coord_out:
-    #    coord_out2.append([int(np.round(scale_factor*coord[0]-xshift,0)),int(np.round(scale_factor*coord[1]-yshift,0))])
-
+        coord_out_rot.append( [ (round(coord[0],0))-(nx/2-nx_in/2), round(coord[1],0)-(ny/2-ny_in/2)] )
 
     if flag_out is None:
         return coord_out
     elif flag_out == 'rotation':
-        return coord_out, angle_selected, center_rot, coord_out_rot
+        return coord_out, angle_selected,coord_out_rot
     else:
         print 'bad def in findRotMaxRect input. stop'
         pdb.set_trace()
@@ -223,9 +166,9 @@ def factors(n):
 if __name__ == '__main__':
 #######################################
 
-    #image_name = 'QlbyX.png' 
+    image_name = 'QlbyX.png' 
     #image_name = '3VcIL.png'
-    image_name = 'Untitled.png'
+    #image_name = 'Untitled.png'
 
     #read image
     #----------------
@@ -235,14 +178,60 @@ if __name__ == '__main__':
     idx_out = np.where(a==0) 
     aa = np.ones_like(a)
     aa[idx_in]  = 0
+    nxaa, nyaa = aa.shape
  
+    #make the image square
+    #----------------
+    n = max([nxaa,nyaa])
+    aaa = np.ones([n,n])
+    xshift = (n-nxaa)/2
+    yshift = (n-nyaa)/2 
+    if yshift == 0:
+        aaa[xshift:-(xshift+1),:                 ] = aa[:,:]
+    else: 
+        aaa[:                 ,yshift:-(yshift)] = aa[:,:]
+
+    #apply scale factor if image bigger than 300x300 pixels
+    #----------------
+    if n > 100:
+        bb = cv2.resize(aaa,(100,100),interpolation=0)
+        scale_factor = 1.*n/bb.shape[0]
+    else:
+        bb = aaa
+        scale_factor = 1
+
+
+    # set the input data with an odd number of point in each dimension to make rotation easier
+    #----------------
+    nx,ny = bb.shape
+    nx_extra = -nx; ny_extra = -ny   
+    if nx%2==0:
+        nx+=1
+        nx_extra = 1
+    if ny%2==0:
+        ny+=1
+        ny_extra = 1
+    bbb = np.ones([bb.shape[0]+max([0,nx_extra]),bb.shape[1]+max([0,ny_extra])])
+    bbb[:-nx_extra, :-ny_extra] = bb
+    nx,ny = bbb.shape
 
     #get coordinate of biggest rectangle
     #----------------
     time_start = datetime.datetime.now()
-    rect_coord_ori, angle, center_rot, coord_out_rot= findRotMaxRect(aa, flag_opt=True, flag_parallel =False,               \
-                                                                     nbre_angle=4, flag_out='rotation',fag_enlarge_img=False)
+    rect_coord_ori, angle, coord_out_rot= findRotMaxRect(bbb, flag_opt=True, flag_parallel =False,  nbre_angle=4, flag_out='rotation',fag_enlarge_img=False)
    
+    #same as bbb as we just add an extra line and/or row
+    #----------------
+    coord_aaa = []
+    for coord in rect_coord_ori:
+        coord_aaa.append([int(np.round(scale_factor*coord[0],0)),int(np.round(scale_factor*coord[1],0))])
+   
+    #coord for aa
+    #----------------
+    coord_aa = []
+    for coord in rect_coord_ori:
+        coord_aa.append([int(np.round(scale_factor*coord[0]-xshift,0)),int(np.round(scale_factor*coord[1]-yshift,0))])
+    
     print 'time elapsed =', (datetime.datetime.now()-time_start).total_seconds()
     print 'angle        =',  angle
     print 
@@ -250,18 +239,19 @@ if __name__ == '__main__':
     #plot
     #----------------
     fig = plt.figure()
-    ax = fig.add_subplot(121, aspect='equal')
+    ax = fig.add_subplot(111, aspect='equal')
     ax.imshow(aa.T,origin='lower',interpolation='nearest')
-    patch = patches.Polygon(rect_coord_ori, edgecolor='green', facecolor='None', linewidth=2)
-    ax.add_patch(patch)
-    
-    M = cv2.getRotationMatrix2D( ( (aa.shape[0]-1)/2, (aa.shape[1]-1)/2 ), angle,1)
-    RotData = cv2.warpAffine(aa,M,aa.shape,flags=cv2.INTER_NEAREST,borderValue=1)
-    ax = plt.subplot(122)
-    ax.imshow(RotData.T,origin='lower',interpolation='nearest')
-    patch = patches.Polygon(coord_out_rot, edgecolor='green', facecolor='None', linewidth=2)
+    patch = patches.Polygon(coord_aa, edgecolor='green', facecolor='None', linewidth=2)
     ax.add_patch(patch)
     plt.show()
+    
+    #M = cv2.getRotationMatrix2D(((bbb.shape[0]-1)/2,(bbb.shape[1]-1)/2),angle,1)
+    #RotData = cv2.warpAffine(bbb,M,bbb.shape,flags=cv2.INTER_NEAREST,borderValue=1)
+    #ax = plt.subplot(111)
+    #ax.imshow(RotData.T,origin='lower',interpolation='nearest')
+    #patch = patches.Polygon(coord_out_rot, edgecolor='green', facecolor='None', linewidth=2)
+    #ax.add_patch(patch)
+    #plt.show()
 
 
 
