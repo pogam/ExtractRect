@@ -74,7 +74,7 @@ def get_rectangle_coord(angle,data,flag_out=None):
 
 
 ########################################################################
-def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,flag_out=None,flag_enlarge_img=True,limit_image_size=300):
+def findRotMaxRect(data_in,flag_opt=False,flag_parallel = False, nbre_angle=10,flag_out=None,flag_enlarge_img=False,limit_image_size=300):
    
     '''
     flag_opt     : True only nbre_angle are tested and a opt descent algo is run on the best fit
@@ -85,7 +85,9 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,fl
     limit_image_size : control the size numbre of pixel of the image use in the function. 
                        this speeds up the code but can give approximated results if the shape is not simple
     '''
-    
+   
+    #time_s = datetime.datetime.now()
+
     #make the image square
     #----------------
     nx_in, ny_in = data_in.shape
@@ -99,9 +101,11 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,fl
         else: 
             data_square[:                 ,yshift:(yshift+ny_in)] = data_in[:,:]
     else:
+        xshift = 0
+        yshift = 0
         data_square = data_in
 
-    #apply scale factor if image bigger than 300x300 pixels
+    #apply scale factor if image bigger than limit_image_size
     #----------------
     if data_square.shape[0] > limit_image_size:
         data_small = cv2.resize(data_square,(limit_image_size, limit_image_size),interpolation=0)
@@ -136,13 +140,15 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,fl
     else:
         data = np.copy(data_odd)
         nx,ny = data.shape
-    
+   
+    #print (datetime.datetime.now()-time_s).total_seconds()
+
     if flag_opt:
         myranges_brute = ([(0.,360.),])
         myranges_bfg = ([(0.,1.),])
         coeff0 = np.array([0.,])
         coeff1  = optimize.brute(residual, myranges_brute, args=(data,), Ns=4, finish=None)
-        popt = optimize.fmin(residual, coeff1, args=(data,), xtol=5., ftol=1.e-5,disp=False)
+        popt = optimize.fmin(residual, coeff1, args=(data,), xtol=5., ftol=1.e-4,disp=False)
         angle_selected = popt[0]
 
     else:
@@ -173,6 +179,8 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,fl
         angle_selected = args_here[argmin][0]
     rectangle, M_rect_max, RotData  = get_rectangle_coord(angle_selected,data,flag_out=True)
     #rectangle, M_rect_max  = get_rectangle_coord(angle_selected,data)
+
+    #print (datetime.datetime.now()-time_s).total_seconds()
 
     #invert rectangle 
     M_invert = cv2.invertAffineTransform(M_rect_max)
@@ -220,6 +228,7 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = True, nbre_angle=10,fl
     #for coord in coord_out:
     #    coord_out2.append([int(np.round(scale_factor*coord[0]-xshift,0)),int(np.round(scale_factor*coord[1]-yshift,0))])
 
+    #print (datetime.datetime.now()-time_s).total_seconds()
 
     if flag_out is None:
         return coord_out
@@ -239,9 +248,9 @@ def factors(n):
 if __name__ == '__main__':
 #######################################
 
-    image_name = 'QlbyX.png' 
+    #image_name = 'QlbyX.png' 
     #image_name = '3VcIL.png'
-    #image_name = 'Untitled.png'
+    image_name = 'Untitled.png'
 
     #read image
     #----------------
@@ -251,7 +260,8 @@ if __name__ == '__main__':
     idx_out = np.where(a==0) 
     aa = np.ones_like(a)
     aa[idx_in]  = 0
- 
+
+    aa = np.load('/home/paugam/Src/Firescene/src/merde.npy')
 
     #get coordinate of biggest rectangle
     #----------------
@@ -261,7 +271,7 @@ if __name__ == '__main__':
                                                              flag_parallel=False,         \
                                                              flag_out='rotation',         \
                                                              flag_enlarge_img=False,      \
-                                                             limit_image_size=200         )
+                                                             limit_image_size=50         )
    
     print 'time elapsed =', (datetime.datetime.now()-time_start).total_seconds()
     print 'angle        =',  angle
