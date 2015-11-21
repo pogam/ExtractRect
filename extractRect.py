@@ -261,8 +261,6 @@ if __name__ == '__main__':
     aa = np.ones_like(a)
     aa[idx_in]  = 0
 
-    aa = np.load('/home/paugam/Src/Firescene/src/merde.npy')
-
     #get coordinate of biggest rectangle
     #----------------
     time_start = datetime.datetime.now()
