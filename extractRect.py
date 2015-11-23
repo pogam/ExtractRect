@@ -42,11 +42,8 @@ def findMaxRect(data):
 
 
 ########################################################################
-def residual(angle,data,flag_bfgs=False):
+def residual(angle,data):
    
-    if flag_bfgs:
-        angle = 360*angle
-
     nx,ny = data.shape
     M = cv2.getRotationMatrix2D(((nx-1)/2,(ny-1)/2),angle,1)
     RotData = cv2.warpAffine(data,M,(nx,ny),flags=cv2.INTER_NEAREST,borderValue=1)
@@ -77,9 +74,10 @@ def get_rectangle_coord(angle,data,flag_out=None):
 def findRotMaxRect(data_in,flag_opt=False,flag_parallel = False, nbre_angle=10,flag_out=None,flag_enlarge_img=False,limit_image_size=300):
    
     '''
-    flag_opt     : True only nbre_angle are tested and a opt descent algo is run on the best fit
-                   False 360 angle are tested from 0 to 359.
-    flag_parallel: only valid when flag_opt=False. the 360 angle are run on multithreading
+    flag_opt     : True only nbre_angle are tested between 90 and 180 
+                        and a opt descent algo is run on the best fit
+                   False 100 angle are tested from 90 to 180.
+    flag_parallel: only valid when flag_opt=False. the 100 angle are run on multithreading
     flag_out     : angle and rectangle of the rotated image are output together with the rectangle of the original image
     flag_enlarge_img : the image used in the function is double of the size of the original to ensure all feature stay in when rotated
     limit_image_size : control the size numbre of pixel of the image use in the function. 
@@ -131,7 +129,6 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = False, nbre_angle=10,f
 
 
     nx_odd,ny_odd = data_odd.shape
-    rotation_angle = np.linspace(0,360,nbre_angle+1)[:-1]
 
     if flag_enlarge_img:
         data = np.zeros([2*data_odd.shape[0]+1,2*data_odd.shape[1]+1]) + 1
@@ -144,14 +141,20 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = False, nbre_angle=10,f
     #print (datetime.datetime.now()-time_s).total_seconds()
 
     if flag_opt:
-        myranges_brute = ([(0.,360.),])
-        myranges_bfg = ([(0.,1.),])
+        myranges_brute = ([(90.,180.),])
         coeff0 = np.array([0.,])
-        coeff1  = optimize.brute(residual, myranges_brute, args=(data,), Ns=4, finish=None)
-        popt = optimize.fmin(residual, coeff1, args=(data,), xtol=5., ftol=1.e-4,disp=False)
+        coeff1  = optimize.brute(residual, myranges_brute, args=(data,), Ns=nbre_angle, finish=None)
+        popt = optimize.fmin(residual, coeff1, args=(data,), xtol=5, ftol=1.e-5, disp=False)
         angle_selected = popt[0]
 
+        #rotation_angle = np.linspace(0,360,100+1)[:-1]
+        #mm = [residual(aa,data) for aa in rotation_angle]
+        #plt.plot(rotation_angle,mm)
+        #plt.show()
+        #pdb.set_trace()
+
     else:
+        rotation_angle = np.linspace(90,180,100+1)[:-1]
         args_here=[]
         for angle in rotation_angle:
             args_here.append([angle,data])
@@ -248,9 +251,10 @@ def factors(n):
 if __name__ == '__main__':
 #######################################
 
-    #image_name = 'QlbyX.png' 
+    image_name = 'QlbyX.png' 
     #image_name = '3VcIL.png'
-    image_name = 'Untitled.png'
+    #image_name = 'Untitled.png'
+    #image_name = 'o943j.png'
 
     #read image
     #----------------
@@ -269,7 +273,7 @@ if __name__ == '__main__':
                                                              flag_parallel=False,         \
                                                              flag_out='rotation',         \
                                                              flag_enlarge_img=False,      \
-                                                             limit_image_size=50         )
+                                                             limit_image_size=100         )
    
     print 'time elapsed =', (datetime.datetime.now()-time_start).total_seconds()
     print 'angle        =',  angle
