@@ -1,3 +1,7 @@
+from __future__ import print_function
+from __future__ import division
+from builtins import range
+from past.utils import old_div
 import numpy as np
 from scipy import ndimage, optimize
 import pdb 
@@ -6,6 +10,7 @@ import cv2
 import matplotlib.patches as patches
 import multiprocessing
 import datetime
+from functools import reduce
 
 ####################################################
 def findMaxRect(data):
@@ -45,7 +50,7 @@ def findMaxRect(data):
 def residual(angle,data):
    
     nx,ny = data.shape
-    M = cv2.getRotationMatrix2D(((nx-1)/2,(ny-1)/2),angle,1)
+    M = cv2.getRotationMatrix2D((old_div((nx-1),2),old_div((ny-1),2)),angle,1)
     RotData = cv2.warpAffine(data,M,(nx,ny),flags=cv2.INTER_NEAREST,borderValue=1)
     rectangle = findMaxRect(RotData)
    
@@ -60,7 +65,7 @@ def residual_star(args):
 ########################################################################
 def get_rectangle_coord(angle,data,flag_out=None):
     nx,ny = data.shape
-    M = cv2.getRotationMatrix2D(((nx-1)/2,(ny-1)/2),angle,1)
+    M = cv2.getRotationMatrix2D((old_div((nx-1),2),old_div((ny-1),2)),angle,1)
     RotData = cv2.warpAffine(data,M,(nx,ny),flags=cv2.INTER_NEAREST,borderValue=1)
     rectangle = findMaxRect(RotData)
     
@@ -92,8 +97,8 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = False, nbre_angle=10,f
     if nx_in != ny_in:
         n = max([nx_in,ny_in])
         data_square = np.ones([n,n])
-        xshift = (n-nx_in)/2
-        yshift = (n-ny_in)/2 
+        xshift = old_div((n-nx_in),2)
+        yshift = old_div((n-ny_in),2) 
         if yshift == 0:
             data_square[xshift:(xshift+nx_in),:                 ] = data_in[:,:]
         else: 
@@ -107,7 +112,7 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = False, nbre_angle=10,f
     #----------------
     if data_square.shape[0] > limit_image_size:
         data_small = cv2.resize(data_square,(limit_image_size, limit_image_size),interpolation=0)
-        scale_factor = 1.*data_square.shape[0]/data_small.shape[0]
+        scale_factor = old_div(1.*data_square.shape[0],data_small.shape[0])
     else:
         data_small = data_square
         scale_factor = 1
@@ -133,7 +138,7 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = False, nbre_angle=10,f
     if flag_enlarge_img:
         data = np.zeros([2*data_odd.shape[0]+1,2*data_odd.shape[1]+1]) + 1
         nx,ny = data.shape
-        data[nx/2-nx_odd/2:nx/2+nx_odd/2,ny/2-ny_odd/2:ny/2+ny_odd/2] = data_odd
+        data[old_div(nx,2)-old_div(nx_odd,2):old_div(nx,2)+old_div(nx_odd,2),old_div(ny,2)-old_div(ny_odd,2):old_div(ny,2)+old_div(ny_odd,2)] = data_odd
     else:
         data = np.copy(data_odd)
         nx,ny = data.shape
@@ -203,16 +208,16 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = False, nbre_angle=10,f
     #transform to numpy coord of input image
     coord_out = []
     for coord in rect_coord_ori:
-        coord_out.append(    [ scale_factor*round(       coord[0]-(nx/2-nx_odd/2),0)-xshift,\
-                               scale_factor*round((ny-1)-coord[1]-(ny/2-ny_odd/2),0)-yshift])
+        coord_out.append(    [ scale_factor*round(       coord[0]-(old_div(nx,2)-old_div(nx_odd,2)),0)-xshift,\
+                               scale_factor*round((ny-1)-coord[1]-(old_div(ny,2)-old_div(ny_odd,2)),0)-yshift])
     
     coord_out_rot = []
     coord_out_rot_h = []
     for coord in rect_coord:
-        coord_out_rot.append( [ scale_factor*round(       coord[0]-(nx/2-nx_odd/2),0)-xshift, \
-                                scale_factor*round(       coord[1]-(ny/2-ny_odd/2),0)-yshift ])
-        coord_out_rot_h.append( [ scale_factor*round(       coord[0]-(nx/2-nx_odd/2),0), \
-                                  scale_factor*round(       coord[1]-(ny/2-ny_odd/2),0) ])
+        coord_out_rot.append( [ scale_factor*round(       coord[0]-(old_div(nx,2)-old_div(nx_odd,2)),0)-xshift, \
+                                scale_factor*round(       coord[1]-(old_div(ny,2)-old_div(ny_odd,2)),0)-yshift ])
+        coord_out_rot_h.append( [ scale_factor*round(       coord[0]-(old_div(nx,2)-old_div(nx_odd,2)),0), \
+                                  scale_factor*round(       coord[1]-(old_div(ny,2)-old_div(ny_odd,2)),0) ])
 
     #M = cv2.getRotationMatrix2D( ( (data_square.shape[0]-1)/2, (data_square.shape[1]-1)/2 ), angle_selected,1)
     #RotData = cv2.warpAffine(data_square,M,data_square.shape,flags=cv2.INTER_NEAREST,borderValue=1)
@@ -238,7 +243,7 @@ def findRotMaxRect(data_in,flag_opt=False,flag_parallel = False, nbre_angle=10,f
     elif flag_out == 'rotation':
         return coord_out, angle_selected, coord_out_rot
     else:
-        print 'bad def in findRotMaxRect input. stop'
+        print('bad def in findRotMaxRect input. stop')
         pdb.set_trace()
 
 ######################################################
@@ -275,9 +280,9 @@ if __name__ == '__main__':
                                                              flag_enlarge_img=False,      \
                                                              limit_image_size=100         )
    
-    print 'time elapsed =', (datetime.datetime.now()-time_start).total_seconds()
-    print 'angle        =',  angle
-    print 
+    print('time elapsed =', (datetime.datetime.now()-time_start).total_seconds())
+    print('angle        =',  angle)
+    print() 
     
     #plot
     #----------------
@@ -287,7 +292,7 @@ if __name__ == '__main__':
     patch = patches.Polygon(rect_coord_ori, edgecolor='green', facecolor='None', linewidth=2)
     ax.add_patch(patch)
    
-    center_rot = ( (aa.shape[1]-1)/2, (aa.shape[0]-1)/2 )
+    center_rot = ( old_div((aa.shape[1]-1),2), old_div((aa.shape[0]-1),2) )
     if max(center_rot)%2 == 0:
         center_rot = (center_rot[0]+1,center_rot[1]+1) 
     M = cv2.getRotationMatrix2D( center_rot, angle,1)
